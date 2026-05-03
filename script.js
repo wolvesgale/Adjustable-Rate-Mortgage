@@ -1,10 +1,10 @@
 const CFG = {
-  lead_url: "#", // TikTok Instantフォームや計測URLに差し替え
-  fp_url: "#https://px.a8.net/svt/ejp?a8mat=4B1HTJ+3R5F3M+5MAS+5YJRM",
+  primary_action: "save_result",
+  fp_url: "https://px.a8.net/svt/ejp?a8mat=4B1HTJ+3R5F3M+5MAS+5YJRM",
   learn_links: [
-    { label: "変動金利の正しい知識を読む（本）", url: "https://amzn.to/4t4AGcB" },
-    { label: "変動金利の基礎を学ぶ（note）", url: "#" },
-    { label: "動画で学ぶ（YouTube）", url: "#" },
+    { label: "変動金利の正しい知識を読む（本）", url: "https://amzn.to/3QGWait" },
+    { label: "変動金利の基礎を学ぶ（note）", url: "https://note.com/dreamrize" },
+    { label: "動画で学ぶ（YouTube）", url: "https://www.youtube.com/@dreamdragon0512" },
   ],
 };
 
@@ -111,6 +111,7 @@ const RESULTS = {
 let currentQ = 0;
 let answers = [];
 let chosen = null;
+let latestEvaluation = null;
 
 function goto(fromId, toId, cb) {
   const from = document.getElementById(fromId);
@@ -127,6 +128,7 @@ function startQuiz() {
   currentQ = 0;
   answers = [];
   chosen = null;
+  latestEvaluation = null;
   goto("screen-intro", "screen-quiz", () => renderQ());
 }
 
@@ -202,8 +204,66 @@ function evaluateResult() {
   return { total, result: RESULTS[resultKey] };
 }
 
+function buildSaveText() {
+  if (!latestEvaluation) return "変動金利耐性チェックの結果はまだありません。";
+
+  const { total, result } = latestEvaluation;
+  const selectedAnswers = answers.map((answer, idx) => {
+    const question = QUESTIONS.find((q) => q.key === answer.key);
+    const option = question?.opts?.[answer.index];
+    return `Q${idx + 1}. ${question?.text || answer.key}\n回答: ${option?.label || "未回答"}`;
+  }).join("\n\n");
+
+  const actionText = result.actions.map((action, idx) => `${idx + 1}. ${action}`).join("\n");
+
+  return [
+    "変動金利耐性チェック｜診断結果",
+    `保存日時: ${new Date().toLocaleString("ja-JP")}`,
+    "",
+    `判定: ${result.label}`,
+    `スコア: ${total}/15`,
+    "",
+    "診断コメント",
+    result.title,
+    result.body,
+    "",
+    "推奨アクション",
+    actionText,
+    "",
+    "回答内容",
+    selectedAnswers,
+    "",
+    "免責",
+    "本診断は一般的な目安を示すものであり、個別の助言・勧誘を目的とするものではありません。"
+  ].join("\n");
+}
+
+async function saveResult() {
+  const text = buildSaveText();
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `henkinri-check-result-${date}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      // noop
+    }
+  }
+}
+
 function showResult() {
-  const { total, result } = evaluateResult();
+  const evaluation = evaluateResult();
+  const { total, result } = evaluation;
+  latestEvaluation = evaluation;
 
   goto("screen-quiz", "screen-result", () => {
     const badge = document.getElementById("res-badge");
@@ -239,16 +299,19 @@ function showResult() {
     const stack = document.getElementById("cta-stack");
     stack.innerHTML = "";
 
-    const primary = document.createElement("a");
-    primary.href = CFG.lead_url;
+    const primary = document.createElement("button");
+    primary.type = "button";
     primary.className = "cta-p";
     primary.textContent = result.primaryCta;
+    primary.onclick = saveResult;
     stack.appendChild(primary);
 
     const secondary = document.createElement("a");
     secondary.href = CFG.fp_url;
     secondary.className = "cta-s";
     secondary.textContent = result.secondaryCta;
+    secondary.target = "_blank";
+    secondary.rel = "noopener noreferrer";
     stack.appendChild(secondary);
 
     const learnWrap = document.createElement("div");
@@ -259,7 +322,10 @@ function showResult() {
       link.href = item.url;
       link.textContent = item.label;
       link.className = "learn-link";
-      if (item.url.startsWith("http")) link.target = "_blank";
+      if (item.url.startsWith("http")) {
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+      }
       learnWrap.appendChild(link);
     });
     stack.appendChild(learnWrap);
