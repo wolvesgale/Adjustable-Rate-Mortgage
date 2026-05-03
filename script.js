@@ -1,6 +1,6 @@
 /* ── CONFIG（リンクはここで差し替え） ── */
 const CFG = {
-  fp_url:   "#fp",                       // FP無料相談URL（差し替え）
+  fp_url:   "#https://px.a8.net/svt/ejp?a8mat=4B1HTJ+3R5F3M+5MAS+5YJRM",                       // FP無料相談URL（差し替え）
   book_url: "https://amzn.to/4t4AGcB",  // Kindle本
 };
 
